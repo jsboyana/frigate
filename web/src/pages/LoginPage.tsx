@@ -1,8 +1,18 @@
 import { UserAuthForm } from "@/components/auth/AuthForm";
 import Logo from "@/components/Logo";
 import { ThemeProvider } from "@/context/theme-provider";
+import { getCookie } from "@/utils/cookieUtil";
+import { useEffect } from "react";
 
-function LoginPage() {
+const LoginPage = () => {
+  const isAuthenticated = () => getCookie("auth") !== null;
+
+  useEffect(() => {
+    if (isAuthenticated()) {
+      window.location.href = "/";
+    }
+  });
+
   return (
     <ThemeProvider defaultTheme="system" storageKey="frigate-ui-theme">
       <div className="size-full overflow-hidden">
@@ -17,6 +27,6 @@ function LoginPage() {
       </div>
     </ThemeProvider>
   );
-}
+};
 
 export default LoginPage;

@@ -118,11 +118,13 @@ function Live() {
   return (
     <div className="size-full" ref={mainRef}>
       {selectedCameraName === "birdseye" ? (
-        <LiveBirdseyeView
-          supportsFullscreen={supportsFullScreen}
-          fullscreen={fullscreen}
-          toggleFullscreen={toggleFullscreen}
-        />
+        <>
+          <LiveBirdseyeView
+            supportsFullscreen={supportsFullScreen}
+            fullscreen={fullscreen}
+            toggleFullscreen={toggleFullscreen}
+          />
+        </>
       ) : selectedCamera ? (
         <LiveCameraView
           config={config}

@@ -20,19 +20,25 @@ import { Drawer, DrawerContent, DrawerTrigger } from "../ui/drawer";
 import { DialogClose } from "../ui/dialog";
 import { LuLogOut } from "react-icons/lu";
 import useSWR from "swr";
+import { removeCookie } from "@/utils/cookieUtil";
 
 type AccountSettingsProps = {
   className?: string;
 };
 export default function AccountSettings({ className }: AccountSettingsProps) {
   const { data: profile } = useSWR("profile");
-  const { data: config } = useSWR("config");
-  const logoutUrl = config?.proxy?.logout_url || `${baseUrl}api/logout`;
+  // const { data: config } = useSWR("config");
+  // const logoutUrl = config?.proxy?.logout_url || `${baseUrl}api/logout`;
 
   const Container = isDesktop ? DropdownMenu : Drawer;
   const Trigger = isDesktop ? DropdownMenuTrigger : DrawerTrigger;
   const Content = isDesktop ? DropdownMenuContent : DrawerContent;
   const MenuItem = isDesktop ? DropdownMenuItem : DialogClose;
+
+  function handleLogout() {
+    removeCookie("auth");
+    window.location.href = "/login";
+  }
 
   return (
     <Container modal={!isDesktop}>
@@ -74,10 +80,14 @@ export default function AccountSettings({ className }: AccountSettingsProps) {
             }
             aria-label="Log out"
           >
-            <a className="flex" href={logoutUrl}>
+            {/* <a className="flex" href={logoutUrl}>
               <LuLogOut className="mr-2 size-4" />
               <span>Logout</span>
-            </a>
+            </a> */}
+            <div className="flex flex-1" onClick={() => handleLogout()}>
+              <LuLogOut className="mr-2 size-4" />
+              <span>Logout</span>
+            </div>
           </MenuItem>
         </div>
       </Content>

@@ -16,6 +16,7 @@ export const ID_EXPLORE = 3;
 export const ID_EXPORT = 4;
 export const ID_PLAYGROUND = 5;
 export const ID_FACE_LIBRARY = 6;
+export const ID_VIDEO = 7;
 
 export default function useNavigation(
   variant: "primary" | "secondary" = "primary",
@@ -62,6 +63,13 @@ export default function useNavigation(
           title: "UI Playground",
           url: "/playground",
           enabled: ENV !== "production",
+        },
+        {
+          id: ID_VIDEO,
+          variant,
+          icon: FaCompactDisc,
+          title: "pano 360",
+          url: "/pano-360"
         },
         {
           id: ID_FACE_LIBRARY,

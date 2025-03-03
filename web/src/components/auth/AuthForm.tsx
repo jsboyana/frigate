@@ -20,11 +20,14 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { setCookie } from "@/utils/cookieUtil";
+import { users } from "@/utils/User";
 
 interface UserAuthFormProps extends React.HTMLAttributes<HTMLDivElement> {}
 
 export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
+  const [error, seterror] = React.useState<boolean>(false);
 
   const formSchema = z.object({
     user: z.string(),
@@ -40,46 +43,77 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
     },
   });
 
+  // const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  //   setIsLoading(true);
+  //   try {
+  //     await axios.post(
+  //       "/login",
+  //       {true
+  //         user: values.user,
+  //         password: values.password,
+  //       },
+  //       {
+  //         headers: {
+  //           "X-CSRF-TOKEN": 1,
+  //         },
+  //       },
+  //     );
+  //     window.location.href = baseUrl;
+  //   } catch (error) {
+  //     if (axios.isAxiosError(error)) {
+  //       const err = error as AxiosError;
+  //       if (err.response?.status === 429) {
+  //         toast.error("Exceeded rate limit. Try again later.", {
+  //           position: "top-center",
+  //         });
+  //       } else if (err.response?.status === 401) {
+  //         toast.error("Login failed", {
+  //           position: "top-center",
+  //         });
+  //       } else {
+  //         toast.error("Unknown error. Check logs.", {
+  //           position: "top-center",
+  //         });
+  //       }
+  //     } else {
+  //       toast.error("Unknown error. Check console logs.", {
+  //         position: "top-center",
+  //       });
+  //     }
+
+  //     setIsLoading(false);
+  //   }
+  // };
+
+  function handleError() {
+    seterror(true);
+
+    setTimeout(() => {
+      seterror(false);
+    }, 5000);
+  }
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
-    try {
-      await axios.post(
-        "/login",
-        {
-          user: values.user,
-          password: values.password,
-        },
-        {
-          headers: {
-            "X-CSRF-TOKEN": 1,
-          },
-        },
-      );
-      window.location.href = baseUrl;
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        const err = error as AxiosError;
-        if (err.response?.status === 429) {
-          toast.error("Exceeded rate limit. Try again later.", {
-            position: "top-center",
-          });
-        } else if (err.response?.status === 401) {
-          toast.error("Login failed", {
-            position: "top-center",
-          });
-        } else {
-          toast.error("Unknown error. Check logs.", {
-            position: "top-center",
-          });
-        }
-      } else {
-        toast.error("Unknown error. Check console logs.", {
-          position: "top-center",
-        });
-      }
+    const userData = {
+      user: values.user.trim().toLowerCase(),
+      password: values.password.trim().toLowerCase(),
+    };
 
-      setIsLoading(false);
+    // Find a matching user
+    const userExists = users.find(
+      (u) =>
+        u.name.trim().toLowerCase() === userData.user &&
+        u.password.trim().toLowerCase() === userData.password,
+    );
+    if (userExists) {
+      setCookie("auth", "True", 4);
+      window.location.href = "/";
+    } else {
+      handleError();
+      console.error("Invalid username or password. Please try again.");
     }
+    setIsLoading(false);
   };
 
   return (
@@ -116,6 +150,11 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
               </FormItem>
             )}
           />
+          {error && (
+            <p className="mt-2 px-3 py-2 text-sm text-red-700">
+              Invalid username or password. Please try again.
+            </p>
+          )}
           <div className="flex flex-row gap-2 pt-5">
             <Button
               variant="select"
