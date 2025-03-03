@@ -194,6 +194,7 @@ openvino
 OWASP
 paddleocr
 paho
+Pano
 passwordless
 popleft
 posthog

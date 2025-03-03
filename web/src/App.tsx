@@ -45,10 +45,10 @@ function App() {
             <div
               id="pageRoot"
               className={cn(
-                "absolute right-0 top-0 overflow-hidden",
-                isMobile
-                  ? `bottom-${isPWA ? 16 : 12} left-0 md:bottom-16 landscape:bottom-14 landscape:md:bottom-16`
-                  : "bottom-8 left-[52px]",
+                isAuthenticated() &&
+                  (isMobile
+                    ? `absolute right-0 top-0 overflow-hidden bottom-${isPWA ? 16 : 12} left-0 md:bottom-16 landscape:bottom-14 landscape:md:bottom-16`
+                    : "absolute bottom-8 left-[52px] right-0 top-0 overflow-hidden"),
               )}
             >
               <Suspense>

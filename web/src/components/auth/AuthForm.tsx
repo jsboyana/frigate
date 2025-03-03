@@ -2,12 +2,12 @@
 
 import * as React from "react";
 
-import { baseUrl } from "../../api/baseUrl";
+// import { baseUrl } from "../../api/baseUrl";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
-import axios, { AxiosError } from "axios";
+// import axios, { AxiosError } from "axios";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import {
@@ -27,7 +27,6 @@ interface UserAuthFormProps extends React.HTMLAttributes<HTMLDivElement> {}
 
 export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
-  const [error, seterror] = React.useState<boolean>(false);
 
   const formSchema = z.object({
     user: z.string(),
@@ -86,11 +85,9 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
   // };
 
   function handleError() {
-    seterror(true);
-
-    setTimeout(() => {
-      seterror(false);
-    }, 5000);
+    toast.error(" Invalid username or password. Please try again.", {
+      position: "top-center",
+    });
   }
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -111,7 +108,6 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
       window.location.href = "/";
     } else {
       handleError();
-      console.error("Invalid username or password. Please try again.");
     }
     setIsLoading(false);
   };
@@ -124,10 +120,10 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
             name="user"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>User</FormLabel>
+                <FormLabel className="text-black">UserName</FormLabel>
                 <FormControl>
                   <Input
-                    className="text-md w-full border border-input bg-background p-2 hover:bg-accent hover:text-accent-foreground dark:[color-scheme:dark]"
+                    className="text-md -foreground w-full border border-input bg-background bg-stone-50 p-2 text-black"
                     autoFocus
                     {...field}
                   />
@@ -139,10 +135,10 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
             name="password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Password</FormLabel>
+                <FormLabel className="text-black">Password</FormLabel>
                 <FormControl>
                   <Input
-                    className="text-md w-full border border-input bg-background p-2 hover:bg-accent hover:text-accent-foreground dark:[color-scheme:dark]"
+                    className="text-md text-black-foreground w-full border border-input bg-background bg-stone-50 p-2 text-black"
                     type="password"
                     {...field}
                   />
@@ -150,11 +146,7 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
               </FormItem>
             )}
           />
-          {error && (
-            <p className="mt-2 px-3 py-2 text-sm text-red-700">
-              Invalid username or password. Please try again.
-            </p>
-          )}
+
           <div className="flex flex-row gap-2 pt-5">
             <Button
               variant="select"
