@@ -113,6 +113,8 @@ import { Switch } from "@/components/ui/switch";
 import axios from "axios";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
+import { PiVideoCamera, PiVideoCameraFill } from "react-icons/pi";
+import VideoViewer from "@/pages/camera";
 
 type LiveCameraViewProps = {
   config?: FrigateConfig;
@@ -252,10 +254,16 @@ export default function LiveCameraView({
     height: 0,
   });
 
+  const [is360Mode, setIs360Mode] = useState(false);
+
   const preferredLiveMode = useMemo(() => {
     if (mic) {
       return "webrtc";
     }
+
+    // if (is360Mode) {
+    //   return "webrtc"; // Force WebRTC for 360 mode
+    // }
 
     if (webRTC && isRestreamed) {
       return "webrtc";
@@ -278,7 +286,13 @@ export default function LiveCameraView({
     }
 
     return "mse";
-  }, [lowBandwidth, mic, webRTC, isRestreamed]);
+  }, [
+    lowBandwidth,
+    mic,
+    webRTC,
+    isRestreamed,
+    // , is360Mode
+  ]);
 
   useKeyboardListener(["m"], (key, modifiers) => {
     if (!modifiers.down) {
@@ -357,6 +371,12 @@ export default function LiveCameraView({
 
   const handleError = useCallback(
     (e: LivePlayerError) => {
+      if (is360Mode) {
+        setIs360Mode(false);
+        toast.error(
+          "Failed to start 360-degree view. Reverting to normal view.",
+        );
+      }
       if (e) {
         if (
           !webRTC &&
@@ -370,7 +390,7 @@ export default function LiveCameraView({
         }
       }
     },
-    [config, webRTC],
+    [config, webRTC, is360Mode],
   );
 
   return (
@@ -388,7 +408,7 @@ export default function LiveCameraView({
           className={
             fullscreen
               ? `absolute right-32 top-1 z-40 ${isMobile ? "landscape:bottom-1 landscape:left-2 landscape:right-auto landscape:top-auto" : ""}`
-              : `flex h-12 w-full flex-row items-center justify-between ${isMobile ? "landscape:h-full landscape:w-12 landscape:flex-col" : ""}`
+              : `z-10 flex h-12 w-full flex-row items-center justify-between ${isMobile ? "landscape:h-full landscape:w-12 landscape:flex-col" : ""}`
           }
         >
           {!fullscreen ? (
@@ -445,6 +465,15 @@ export default function LiveCameraView({
                   )}
                 </Button>
               )}
+
+              <CameraFeatureToggle
+                className="p-2 md:p-0"
+                variant={fullscreen ? "overlay" : "primary"}
+                Icon={is360Mode ? PiVideoCamera : PiVideoCameraFill}
+                isActive={is360Mode}
+                title={is360Mode ? "Close Pano 360 View" : "Pano 360 View"}
+                onClick={() => setIs360Mode(!is360Mode)}
+              />
               {supportsFullscreen && (
                 <CameraFeatureToggle
                   className="p-2 md:p-0"
@@ -522,48 +551,73 @@ export default function LiveCameraView({
           </TooltipProvider>
         </div>
         <div id="player-container" className="size-full" ref={containerRef}>
-          <TransformComponent
-            wrapperStyle={{
-              width: "100%",
-              height: "100%",
-            }}
-            contentStyle={{
-              position: "relative",
-              width: "100%",
-              height: "100%",
-              padding: "8px",
-            }}
-          >
-            <div
-              className={`flex flex-col items-center justify-center ${growClassName}`}
-              ref={clickOverlayRef}
-              onClick={handleOverlayClick}
-              style={{
-                aspectRatio: constrainedAspectRatio,
+          {is360Mode ? (
+            <VideoViewer popUpView={true} />
+          ) : (
+            <TransformComponent
+              wrapperStyle={{
+                width: "100%",
+                height: "100%",
+              }}
+              contentStyle={{
+                position: "relative",
+                width: "100%",
+                height: "100%",
+                padding: "8px",
               }}
             >
-              <LivePlayer
-                key={camera.name}
-                className={`${fullscreen ? "*:rounded-none" : ""}`}
-                windowVisible
-                showStillWithoutActivity={false}
-                cameraConfig={camera}
-                playAudio={audio}
-                playInBackground={playInBackground ?? false}
-                showStats={showStats}
-                micEnabled={mic}
-                iOSCompatFullScreen={isIOS}
-                preferredLiveMode={preferredLiveMode}
-                useWebGL={true}
-                streamName={streamName ?? ""}
-                pip={pip}
-                containerRef={containerRef}
-                setFullResolution={setFullResolution}
-                onError={handleError}
-              />
-            </div>
-          </TransformComponent>
+              <div
+                className={`flex flex-col items-center justify-center ${growClassName}`}
+                ref={clickOverlayRef}
+                onClick={handleOverlayClick}
+                style={{
+                  aspectRatio: constrainedAspectRatio,
+                }}
+              >
+                <LivePlayer
+                  key={camera.name}
+                  className={`${fullscreen ? "*:rounded-none" : ""}`}
+                  windowVisible
+                  showStillWithoutActivity={false}
+                  cameraConfig={camera}
+                  playAudio={audio}
+                  playInBackground={playInBackground ?? false}
+                  showStats={showStats}
+                  micEnabled={mic}
+                  iOSCompatFullScreen={isIOS}
+                  preferredLiveMode={preferredLiveMode}
+                  useWebGL={true || is360Mode} // Force WebGL in 360 mode
+                  streamName={streamName ?? ""}
+                  pip={pip}
+                  containerRef={containerRef}
+                  setFullResolution={setFullResolution}
+                  enable360={is360Mode}
+                  // autoRotate={autoRotate}
+                  // onClick={() => setIs360Mode(!is360Mode)}
+                  onError={handleError}
+                />
+              </div>
+            </TransformComponent>
+          )}
         </div>
+        {/* {is360Mode && (
+          <div className="absolute bottom-4 right-4 z-50 flex items-center gap-2 rounded bg-black/50 p-2">
+            <TooltipButton
+              label={autoRotate ? "Stop Auto-Rotation" : "Start Auto-Rotation"}
+              onClick={() => setAutoRotate(!autoRotate)}
+            >
+              <MdOutlineRestartAlt
+                className={cn("h-6 w-6", autoRotate && "text-blue-500")}
+              />
+            </TooltipButton>
+            <TooltipButton
+              label="Exit 360° Mode"
+              onClick={() => setIs360Mode(false)}
+            >
+              <LuX className="h-6 w-6" />
+            </TooltipButton>
+          </div>
+        )} */}
       </div>
       {camera.onvif.host != "" && (
         <div className="flex flex-col items-center justify-center">

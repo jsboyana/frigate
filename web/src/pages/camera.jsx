@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import "aframe";
 import "../../public/VideoViewer.css";
 
-const VideoViewer = () => {
+const VideoViewer = ({ popUpView = false }) => {
   const videoRef = useRef(null);
   const sceneRef = useRef(null);
   const [isFlat, setIsFlat] = useState(false);
@@ -100,10 +100,12 @@ const VideoViewer = () => {
 
   return (
     <div className="video-container">
-      <div className="controls">
-        <button onClick={toggleView}>Switch to Flat View</button>
-        <button onClick={enterVR}>Enter VR</button>
-      </div>
+      {!popUpView && (
+        <div className="controls">
+          <button onClick={toggleView}>Switch to Flat View</button>
+          <button onClick={enterVR}>Enter VR</button>
+        </div>
+      )}
 
       <a-scene ref={sceneRef}>
         <a-assets>
