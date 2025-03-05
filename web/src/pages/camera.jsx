@@ -1,130 +1,108 @@
-import React, { useEffect, useRef, useState } from "react";
-import "aframe";
+import React, { useEffect, useRef } from 'react';
+import 'aframe';
 import "../../public/VideoViewer.css";
 
-const VideoViewer = ({ popUpView = false }) => {
-  const videoRef = useRef(null);
-  const sceneRef = useRef(null);
-  const [isFlat, setIsFlat] = useState(false);
-  const [autoRotateEnabled, setAutoRotateEnabled] = useState(false);
-
-  const enterVR = () => {
-    const scene = document.querySelector("a-scene");
-    if (scene) {
-      if (scene.is("vr-mode")) {
-        scene.exitVR();
-      } else {
-        scene.enterVR();
-      }
-    }
-  };
-
-  const toggleView = () => {
-    setIsFlat(!isFlat);
-    setAutoRotateEnabled(true); // Reset auto-rotation when switching to 360 view
-  };
+const VideoViewer = ({ Player }) => {
+  const containerRef = useRef();
+  const videoRef = useRef();
 
   useEffect(() => {
-    // Start video autoplay when component mounts
-    if (videoRef.current) {
-      videoRef.current.play().catch((error) => {
-        console.log("Autoplay prevented:", error);
-      });
-    }
-
-    let animationFrame;
-    let lastRotation = 0;
-
-    const updateRotation = () => {
-      if (!autoRotateEnabled || isFlat) return;
-
-      // Rotate the camera in 360 mode
-      const camera = document.querySelector("a-camera");
-      if (camera) {
-        lastRotation = (lastRotation + 0.1) % 360;
-        camera.setAttribute("rotation", `0 ${lastRotation} 0`);
-        animationFrame = requestAnimationFrame(updateRotation);
+    const setupVideo = () => {
+      // Wait for JSMpeg player to be ready
+      const jsmpegPlayer = document.querySelector('.jsmpeg');
+      if (!jsmpegPlayer) {
+        console.log("JSMpeg player not found, retrying...");
+        setTimeout(setupVideo, 100);
+        return;
       }
+
+      // Find the canvas element inside JSMpeg player
+      const canvas = jsmpegPlayer.querySelector('canvas');
+      if (!canvas) {
+        console.log("Canvas not found, retrying...");
+        setTimeout(setupVideo, 100);
+        return;
+      }
+
+      console.log("Found JSMpeg canvas");
+      videoRef.current = canvas;
+
+      // Create a video texture from the canvas
+      const textureVideo = document.createElement('video');
+      textureVideo.id = 'videoTexture';
+      textureVideo.style.display = 'none';
+      document.body.appendChild(textureVideo);
+
+      // Create a MediaStream from the canvas
+      const stream = canvas.captureStream(30); // 30 FPS
+      textureVideo.srcObject = stream;
+      textureVideo.playsInline = true;
+      textureVideo.muted = true;
+      textureVideo.crossOrigin = 'anonymous';
+
+      // Update the videosphere when ready
+      textureVideo.addEventListener('canplay', () => {
+        const sphere = document.querySelector('a-videosphere');
+        if (sphere) {
+          sphere.setAttribute('src', '#videoTexture');
+          console.log("Video texture updated");
+        }
+      });
+
+      // Start playing the video
+      textureVideo.play().catch(err => {
+        console.error("Error playing video:", err);
+      });
     };
 
-    // Start auto-rotation only in 360 mode
-    if (!isFlat) {
-      updateRotation();
+    // Give JSMpeg time to initialize
+    setTimeout(setupVideo, 1000);
 
-      // Stop auto-rotation on mouse/touch interaction
-      const stopAutoRotation = () => {
-        setAutoRotateEnabled(false);
-        if (animationFrame) {
-          cancelAnimationFrame(animationFrame);
+    // Cleanup
+    return () => {
+      const textureVideo = document.getElementById('videoTexture');
+      if (textureVideo) {
+        const stream = textureVideo.srcObject;
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop());
         }
-      };
-
-      const scene = document.querySelector("a-scene");
-      if (scene) {
-        scene.addEventListener("mousedown", stopAutoRotation);
-        scene.addEventListener("touchstart", stopAutoRotation);
+        textureVideo.pause();
+        textureVideo.srcObject = null;
+        textureVideo.remove();
       }
-
-      return () => {
-        if (animationFrame) {
-          cancelAnimationFrame(animationFrame);
-        }
-        if (scene) {
-          scene.removeEventListener("mousedown", stopAutoRotation);
-          scene.removeEventListener("touchstart", stopAutoRotation);
-        }
-      };
-    }
-  }, [isFlat, autoRotateEnabled]);
-
-  if (isFlat) {
-    return (
-      <div className="video-container flat-mode">
-        <div className="controls">
-          <button onClick={toggleView}>Switch to 360° View</button>
-        </div>
-        <div className="video-wrapper">
-          <video
-            ref={videoRef}
-            src="../../public/video/office.mp4"
-            className="flat-video"
-            autoPlay
-            loop
-            playsInline
-            muted
-          />
-        </div>
-      </div>
-    );
-  }
+    };
+  }, []);
 
   return (
-    <div className="video-container">
-      {!popUpView && (
-        <div className="controls">
-          <button onClick={toggleView}>Switch to Flat View</button>
-          <button onClick={enterVR}>Enter VR</button>
-        </div>
-      )}
+    <div className="video-container" ref={containerRef}>
+      {/* Original JSMpeg player */}
+      <div style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', zIndex: -1 }}>
+        {Player}
+      </div>
 
-      <a-scene ref={sceneRef}>
-        <a-assets>
-          <video
-            id="video"
-            ref={videoRef}
-            src="../../public/video/office.mp4"
-            crossOrigin="anonymous"
-            loop
-            autoPlay
-            playsInline
-            muted
-          />
-        </a-assets>
-
-        <a-videosphere src="#video" rotation="0 -90 0" />
-
-        <a-camera position="0 1.6 0" look-controls="reverseMouseDrag: true" />
-      </a-scene>
+      {/* A-Frame Scene */}
+      <div dangerouslySetInnerHTML={{
+        __html: `
+          <a-scene embedded vr-mode-ui="enabled: false">
+            <a-videosphere 
+              rotation="0 -90 0"
+              material="shader: flat; side: back"
+            ></a-videosphere>
+            <a-entity 
+              position="0 1.6 0"
+              camera
+              look-controls="reverseMouseDrag: true; touchEnabled: true"
+              wasd-controls="enabled: false"
+            >
+              <a-entity 
+                cursor="fuse: false"
+                raycaster="objects: .clickable"
+                position="0 0 -1"
+              ></a-entity>
+            </a-entity>
+          </a-scene>
+        `
+      }} />
     </div>
   );
 };

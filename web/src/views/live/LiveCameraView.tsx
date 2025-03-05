@@ -552,7 +552,30 @@ export default function LiveCameraView({
         </div>
         <div id="player-container" className="size-full" ref={containerRef}>
           {is360Mode ? (
-            <VideoViewer popUpView={true} />
+            <VideoViewer
+              Player={
+                <LivePlayer
+                  key={camera.name}
+                  className={`${fullscreen ? "*:rounded-none" : ""}`}
+                  windowVisible
+                  showStillWithoutActivity={false}
+                  cameraConfig={camera}
+                  playAudio={audio}
+                  playInBackground={playInBackground ?? false}
+                  showStats={showStats}
+                  micEnabled={mic}
+                  iOSCompatFullScreen={isIOS}
+                  preferredLiveMode={preferredLiveMode}
+                  useWebGL={true}
+                  streamName={streamName ?? ""}
+                  pip={pip}
+                  containerRef={containerRef}
+                  setFullResolution={setFullResolution}
+                  onError={handleError}
+                />
+              }
+              popUpView={true}
+            />
           ) : (
             <TransformComponent
               wrapperStyle={{
