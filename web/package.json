@@ -41,7 +41,7 @@
     "@react-three/fiber": "^9.0.4",
     "aframe": "^1.7.0",
     "aframe-react": "^4.4.0",
-    "apexcharts": "^3.52.0",
+    "apexcharts": "^4.5.0",
     "axios": "^1.7.7",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
