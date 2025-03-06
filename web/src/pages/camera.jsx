@@ -1,77 +1,193 @@
 import React, { useEffect, useRef } from 'react';
 import 'aframe';
 import "../../public/VideoViewer.css";
+import { baseUrl } from "@/api/baseUrl";
 
-const VideoViewer = ({ Player }) => {
+const VideoViewer = ({ Player, streamName }) => {
   const containerRef = useRef();
   const videoRef = useRef();
+  const pcRef = useRef();
 
   useEffect(() => {
     const setupVideo = () => {
-      // Wait for JSMpeg player to be ready
-      const jsmpegPlayer = document.querySelector('.jsmpeg');
-      if (!jsmpegPlayer) {
-        console.log("JSMpeg player not found, retrying...");
-        setTimeout(setupVideo, 100);
-        return;
-      }
-
-      // Find the canvas element inside JSMpeg player
-      const canvas = jsmpegPlayer.querySelector('canvas');
-      if (!canvas) {
-        console.log("Canvas not found, retrying...");
-        setTimeout(setupVideo, 100);
-        return;
-      }
-
-      console.log("Found JSMpeg canvas");
-      videoRef.current = canvas;
-
-      // Create a video texture from the canvas
+      // Create a video element for the go2rtc stream
       const textureVideo = document.createElement('video');
       textureVideo.id = 'videoTexture';
       textureVideo.style.display = 'none';
-      document.body.appendChild(textureVideo);
-
-      // Create a MediaStream from the canvas
-      const stream = canvas.captureStream(30); // 30 FPS
-      textureVideo.srcObject = stream;
       textureVideo.playsInline = true;
       textureVideo.muted = true;
       textureVideo.crossOrigin = 'anonymous';
+      textureVideo.autoplay = true;
 
-      // Update the videosphere when ready
-      textureVideo.addEventListener('canplay', () => {
+      // Set the source to the go2rtc stream URL
+      const wsUrl = `${baseUrl.replace(/^http/, "ws")}live/webrtc/api/ws?src=${streamName}`;
+      console.log("🧑‍💻 ~ setupVideo ~ wsUrl=>>>> ", wsUrl);
+
+      // Create WebSocket connection
+      const ws = new WebSocket(wsUrl);
+      
+      ws.onopen = async () => {
+        console.log('WebSocket connected');
+        try {
+          const pc = new RTCPeerConnection({
+            bundlePolicy: "max-bundle",
+            iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+          });
+          pcRef.current = pc;
+
+          pc.ontrack = (event) => {
+            console.log("Received track", event.streams[0]);
+            textureVideo.srcObject = event.streams[0];
+            
+            // Log video element state
+            console.log("Video element state:", {
+              readyState: textureVideo.readyState,
+              paused: textureVideo.paused,
+              currentTime: textureVideo.currentTime,
+              videoWidth: textureVideo.videoWidth,
+              videoHeight: textureVideo.videoHeight
+            });
+
+            // Ensure video starts playing
+            textureVideo.play().catch(err => {
+              console.error("Error playing video after track:", err);
+            });
+
+            // Update A-Frame video texture
+            const sphere = document.querySelector('a-videosphere');
+            if (sphere) {
+              sphere.setAttribute('material', {
+                shader: 'flat',
+                src: textureVideo,
+                side: 'back'
+              });
+              console.log("Updated video texture on sphere with live stream");
+            }
+          };
+
+          pc.onicecandidate = (event) => {
+            if (event.candidate) {
+              console.log("Sending ICE candidate");
+              ws.send(JSON.stringify({
+                type: "webrtc/candidate",
+                value: event.candidate.candidate
+              }));
+            }
+          };
+
+          pc.oniceconnectionstatechange = () => {
+            console.log("ICE Connection State:", pc.iceConnectionState);
+          };
+
+          // Add transceivers for receiving video and audio
+          pc.addTransceiver("video", { direction: "recvonly" });
+          pc.addTransceiver("audio", { direction: "recvonly" });
+
+          // Create and set local description
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          console.log("Local description set");
+
+          // Send offer
+          ws.send(JSON.stringify({
+            type: "webrtc/offer",
+            value: pc.localDescription.sdp
+          }));
+          console.log("Offer sent");
+
+        } catch (e) {
+          console.error('WebRTC setup failed:', e);
+        }
+      };
+
+      ws.onmessage = async (event) => {
+        const msg = JSON.parse(event.data);
+        console.log("Received message:", msg);
+
+        if (msg.type === "webrtc/answer") {
+          try {
+            await pcRef.current.setRemoteDescription({
+              type: "answer",
+              sdp: msg.value
+            });
+            console.log("Remote description set");
+          } catch (e) {
+            console.error('Failed to set remote description:', e);
+          }
+        } else if (msg.type === "webrtc/candidate") {
+          try {
+            const pc = pcRef.current;
+            if (pc) {
+              await pc.addIceCandidate({ 
+                candidate: msg.value,
+                sdpMid: "0"
+              });
+              console.log("Added ICE candidate");
+            }
+          } catch (e) {
+            console.error('Failed to add ICE candidate:', e);
+          }
+        } else if (msg.type === "error") {
+          console.error("WebSocket error message:", msg);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+
+      // Append the video element to the DOM
+      document.body.appendChild(textureVideo);
+
+      // Add video event listeners for debugging
+      textureVideo.addEventListener('loadedmetadata', () => {
+        console.log("Video loadedmetadata event");
+      });
+
+      textureVideo.addEventListener('playing', () => {
+        console.log("Video playing event");
+        
+        // Try updating the texture again when playing starts
         const sphere = document.querySelector('a-videosphere');
         if (sphere) {
-          sphere.setAttribute('src', '#videoTexture');
-          console.log("Video texture updated");
+          sphere.setAttribute('material', {
+            shader: 'flat',
+            src: textureVideo,
+            side: 'back'
+          });
+          console.log("Updated video texture on sphere when playing");
         }
       });
 
-      // Start playing the video
-      textureVideo.play().catch(err => {
-        console.error("Error playing video:", err);
+      textureVideo.addEventListener('error', (e) => {
+        console.error("Video error:", e);
       });
-    };
 
-    // Give JSMpeg time to initialize
-    setTimeout(setupVideo, 1000);
-
-    // Cleanup
-    return () => {
-      const textureVideo = document.getElementById('videoTexture');
-      if (textureVideo) {
-        const stream = textureVideo.srcObject;
-        if (stream) {
-          stream.getTracks().forEach(track => track.stop());
+      // Cleanup function
+      return () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.close();
         }
-        textureVideo.pause();
-        textureVideo.srcObject = null;
-        textureVideo.remove();
-      }
+        if (textureVideo) {
+          if (textureVideo.srcObject) {
+            const tracks = textureVideo.srcObject.getTracks();
+            tracks.forEach(track => track.stop());
+          }
+          textureVideo.pause();
+          textureVideo.srcObject = null;
+          textureVideo.remove();
+        }
+        if (pcRef.current) {
+          pcRef.current.close();
+          pcRef.current = undefined;
+        }
+      };
     };
-  }, []);
+
+    // Give some time for the DOM to initialize
+    const timeoutId = setTimeout(setupVideo, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [streamName]);
 
   return (
     <div className="video-container" ref={containerRef}>

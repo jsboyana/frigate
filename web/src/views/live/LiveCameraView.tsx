@@ -574,7 +574,7 @@ export default function LiveCameraView({
                   onError={handleError}
                 />
               }
-              popUpView={true}
+              streamName={streamName ?? ""}
             />
           ) : (
             <TransformComponent
@@ -609,14 +609,11 @@ export default function LiveCameraView({
                   micEnabled={mic}
                   iOSCompatFullScreen={isIOS}
                   preferredLiveMode={preferredLiveMode}
-                  useWebGL={true || is360Mode} // Force WebGL in 360 mode
+                  useWebGL={true}
                   streamName={streamName ?? ""}
                   pip={pip}
                   containerRef={containerRef}
                   setFullResolution={setFullResolution}
-                  enable360={is360Mode}
-                  // autoRotate={autoRotate}
-                  // onClick={() => setIs360Mode(!is360Mode)}
                   onError={handleError}
                 />
               </div>
