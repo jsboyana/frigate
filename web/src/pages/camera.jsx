@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import 'aframe';
+import React, { useEffect, useRef, useState } from "react";
+import "aframe";
 import "../../public/VideoViewer.css";
 import { baseUrl } from "@/api/baseUrl";
 
@@ -7,16 +7,25 @@ const VideoViewer = ({ Player, streamName }) => {
   const containerRef = useRef();
   const videoRef = useRef();
   const pcRef = useRef();
+  const [scale, setScale] = useState(1);
+
+  const handleZoomIn = () => {
+    setScale((prevScale) => Math.min(prevScale + 0.2, 3)); // Max zoom 3x
+  };
+
+  const handleZoomOut = () => {
+    setScale((prevScale) => Math.max(prevScale - 0.2, 1)); // Min zoom 0.5x
+  };
 
   useEffect(() => {
     const setupVideo = () => {
       // Create a video element for the go2rtc stream
-      const textureVideo = document.createElement('video');
-      textureVideo.id = 'videoTexture';
-      textureVideo.style.display = 'none';
+      const textureVideo = document.createElement("video");
+      textureVideo.id = "videoTexture";
+      textureVideo.style.display = "none";
       textureVideo.playsInline = true;
       textureVideo.muted = true;
-      textureVideo.crossOrigin = 'anonymous';
+      textureVideo.crossOrigin = "anonymous";
       textureVideo.autoplay = true;
 
       // Set the source to the go2rtc stream URL
@@ -25,41 +34,41 @@ const VideoViewer = ({ Player, streamName }) => {
 
       // Create WebSocket connection
       const ws = new WebSocket(wsUrl);
-      
+
       ws.onopen = async () => {
-        console.log('WebSocket connected');
+        console.log("WebSocket connected");
         try {
           const pc = new RTCPeerConnection({
             bundlePolicy: "max-bundle",
-            iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+            iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
           });
           pcRef.current = pc;
 
           pc.ontrack = (event) => {
             console.log("Received track", event.streams[0]);
             textureVideo.srcObject = event.streams[0];
-            
+
             // Log video element state
             console.log("Video element state:", {
               readyState: textureVideo.readyState,
               paused: textureVideo.paused,
               currentTime: textureVideo.currentTime,
               videoWidth: textureVideo.videoWidth,
-              videoHeight: textureVideo.videoHeight
+              videoHeight: textureVideo.videoHeight,
             });
 
             // Ensure video starts playing
-            textureVideo.play().catch(err => {
+            textureVideo.play().catch((err) => {
               console.error("Error playing video after track:", err);
             });
 
             // Update A-Frame video texture
-            const sphere = document.querySelector('a-videosphere');
+            const sphere = document.querySelector("a-videosphere");
             if (sphere) {
-              sphere.setAttribute('material', {
-                shader: 'flat',
+              sphere.setAttribute("material", {
+                shader: "flat",
                 src: textureVideo,
-                side: 'back'
+                side: "back",
               });
               console.log("Updated video texture on sphere with live stream");
             }
@@ -68,10 +77,12 @@ const VideoViewer = ({ Player, streamName }) => {
           pc.onicecandidate = (event) => {
             if (event.candidate) {
               console.log("Sending ICE candidate");
-              ws.send(JSON.stringify({
-                type: "webrtc/candidate",
-                value: event.candidate.candidate
-              }));
+              ws.send(
+                JSON.stringify({
+                  type: "webrtc/candidate",
+                  value: event.candidate.candidate,
+                }),
+              );
             }
           };
 
@@ -89,14 +100,15 @@ const VideoViewer = ({ Player, streamName }) => {
           console.log("Local description set");
 
           // Send offer
-          ws.send(JSON.stringify({
-            type: "webrtc/offer",
-            value: pc.localDescription.sdp
-          }));
+          ws.send(
+            JSON.stringify({
+              type: "webrtc/offer",
+              value: pc.localDescription.sdp,
+            }),
+          );
           console.log("Offer sent");
-
         } catch (e) {
-          console.error('WebRTC setup failed:', e);
+          console.error("WebRTC setup failed:", e);
         }
       };
 
@@ -108,24 +120,24 @@ const VideoViewer = ({ Player, streamName }) => {
           try {
             await pcRef.current.setRemoteDescription({
               type: "answer",
-              sdp: msg.value
+              sdp: msg.value,
             });
             console.log("Remote description set");
           } catch (e) {
-            console.error('Failed to set remote description:', e);
+            console.error("Failed to set remote description:", e);
           }
         } else if (msg.type === "webrtc/candidate") {
           try {
             const pc = pcRef.current;
             if (pc) {
-              await pc.addIceCandidate({ 
+              await pc.addIceCandidate({
                 candidate: msg.value,
-                sdpMid: "0"
+                sdpMid: "0",
               });
               console.log("Added ICE candidate");
             }
           } catch (e) {
-            console.error('Failed to add ICE candidate:', e);
+            console.error("Failed to add ICE candidate:", e);
           }
         } else if (msg.type === "error") {
           console.error("WebSocket error message:", msg);
@@ -133,33 +145,33 @@ const VideoViewer = ({ Player, streamName }) => {
       };
 
       ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.error("WebSocket error:", error);
       };
 
       // Append the video element to the DOM
       document.body.appendChild(textureVideo);
 
       // Add video event listeners for debugging
-      textureVideo.addEventListener('loadedmetadata', () => {
+      textureVideo.addEventListener("loadedmetadata", () => {
         console.log("Video loadedmetadata event");
       });
 
-      textureVideo.addEventListener('playing', () => {
+      textureVideo.addEventListener("playing", () => {
         console.log("Video playing event");
-        
+
         // Try updating the texture again when playing starts
-        const sphere = document.querySelector('a-videosphere');
+        const sphere = document.querySelector("a-videosphere");
         if (sphere) {
-          sphere.setAttribute('material', {
-            shader: 'flat',
+          sphere.setAttribute("material", {
+            shader: "flat",
             src: textureVideo,
-            side: 'back'
+            side: "back",
           });
           console.log("Updated video texture on sphere when playing");
         }
       });
 
-      textureVideo.addEventListener('error', (e) => {
+      textureVideo.addEventListener("error", (e) => {
         console.error("Video error:", e);
       });
 
@@ -171,7 +183,7 @@ const VideoViewer = ({ Player, streamName }) => {
         if (textureVideo) {
           if (textureVideo.srcObject) {
             const tracks = textureVideo.srcObject.getTracks();
-            tracks.forEach(track => track.stop());
+            tracks.forEach((track) => track.stop());
           }
           textureVideo.pause();
           textureVideo.srcObject = null;
@@ -190,35 +202,94 @@ const VideoViewer = ({ Player, streamName }) => {
   }, [streamName]);
 
   return (
-    <div className="video-container" ref={containerRef}>
+    <div
+      className="video-container"
+      ref={containerRef}
+      style={{ position: "relative" }}
+    >
       {/* Original JSMpeg player */}
-      <div style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', zIndex: -1 }}>
-        {Player}
+      <div
+        style={{
+          position: "absolute",
+          opacity: 0,
+          pointerEvents: "none",
+        }}
+        ref={videoRef}
+      />
+      {/* A-Frame scene */}
+      <a-scene
+        embedded
+        vr-mode-ui="enabled: false"
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: "center center",
+        }}
+      >
+        <a-entity
+          position="0 1.6 0"
+          camera
+          look-controls="reverseMouseDrag: true; touchEnabled: true"
+          wasd-controls="enabled: false"
+        >
+          <a-entity
+            cursor="fuse: false"
+            raycaster="objects: .clickable"
+            position="0 0 -1"
+          ></a-entity>
+        </a-entity>
+        <a-videosphere rotation="0 180 0" />
+      </a-scene>
+      {/* Zoom Controls */}
+      <div
+        className="zoom-controls"
+        style={{
+          position: "absolute",
+          bottom: "100px",
+          right: "20px",
+          zIndex: 1000,
+          display: "flex",
+          gap: "10px",
+        }}
+      >
+        <button
+          onClick={handleZoomOut}
+          style={{
+            width: "40px",
+            height: "40px",
+            background: "rgba(0, 0, 0, 0.6)",
+            border: "1px solid rgba(255, 255, 255, 0.3)",
+            borderRadius: "8px",
+            color: "white",
+            fontSize: "20px",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "0",
+          }}
+        >
+          -
+        </button>
+        <button
+          onClick={handleZoomIn}
+          style={{
+            width: "40px",
+            height: "40px",
+            background: "rgba(0, 0, 0, 0.6)",
+            border: "1px solid rgba(255, 255, 255, 0.3)",
+            borderRadius: "8px",
+            color: "white",
+            fontSize: "20px",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "0",
+          }}
+        >
+          +
+        </button>
       </div>
-
-      {/* A-Frame Scene */}
-      <div dangerouslySetInnerHTML={{
-        __html: `
-          <a-scene embedded vr-mode-ui="enabled: false">
-            <a-videosphere 
-              rotation="0 -90 0"
-              material="shader: flat; side: back"
-            ></a-videosphere>
-            <a-entity 
-              position="0 1.6 0"
-              camera
-              look-controls="reverseMouseDrag: true; touchEnabled: true"
-              wasd-controls="enabled: false"
-            >
-              <a-entity 
-                cursor="fuse: false"
-                raycaster="objects: .clickable"
-                position="0 0 -1"
-              ></a-entity>
-            </a-entity>
-          </a-scene>
-        `
-      }} />
     </div>
   );
 };
