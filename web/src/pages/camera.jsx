@@ -17,6 +17,29 @@ const VideoViewer = ({ Player, streamName }) => {
     setScale((prevScale) => Math.max(prevScale - 0.2, 1)); // Min zoom 0.5x
   };
 
+  const handleWheel = (event) => {
+    event.preventDefault();
+    const delta = event.deltaY;
+    if (delta < 0) {
+      handleZoomIn();
+    } else {
+      handleZoomOut();
+    }
+  };
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener("wheel", handleWheel, { passive: false });
+    }
+
+    return () => {
+      if (container) {
+        container.removeEventListener("wheel", handleWheel);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const setupVideo = () => {
       // Create a video element for the go2rtc stream
