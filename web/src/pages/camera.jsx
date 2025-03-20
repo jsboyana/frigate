@@ -8,6 +8,50 @@ const VideoViewer = ({ Player, streamName }) => {
   const videoRef = useRef();
   const pcRef = useRef();
   const [scale, setScale] = useState(1);
+  const [rotateAngle, setRotateAngle] = useState(0);
+  const [isRotating, setIsRotating] = useState(true);
+  const [isUserInteracting, setIsUserInteracting] = useState(false);
+
+  useEffect(() => {
+    let rotationInterval;
+    if (isRotating && !isUserInteracting) {
+      rotationInterval = setInterval(() => {
+        setRotateAngle((prevAngle) => (prevAngle + 0.2) % 360);
+      }, 16);
+    }
+
+    return () => {
+      if (rotationInterval) {
+        clearInterval(rotationInterval);
+      }
+    };
+  }, [isRotating, isUserInteracting]);
+
+  const handleMouseDown = () => {
+    setIsUserInteracting(true);
+    setIsRotating(false);
+  };
+
+  const handleMouseUp = () => {
+    setIsUserInteracting(false);
+  };
+
+  useEffect(() => {
+    document.addEventListener("mousedown", handleMouseDown);
+    document.addEventListener("mouseup", handleMouseUp);
+    document.addEventListener("mouseleave", handleMouseUp);
+
+    return () => {
+      document.removeEventListener("mousedown", handleMouseDown);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.removeEventListener("mouseleave", handleMouseUp);
+    };
+  }, []);
+
+  const toggleRotation = () => {
+    setIsRotating((prev) => !prev);
+    setIsUserInteracting(false);
+  };
 
   const handleZoomIn = () => {
     setScale((prevScale) => Math.min(prevScale + 0.2, 3)); // Max zoom 3x
@@ -27,15 +71,56 @@ const VideoViewer = ({ Player, streamName }) => {
     }
   };
 
+  const handleTouchMove = (event) => {
+    if (event.touches.length === 2) {
+      event.preventDefault();
+      const touch1 = event.touches[0];
+      const touch2 = event.touches[1];
+
+      // Calculate the distance between two fingers
+      const currentDistance = Math.hypot(
+        touch1.clientX - touch2.clientX,
+        touch1.clientY - touch2.clientY,
+      );
+
+      if (containerRef.current._lastTouchDistance) {
+        const delta = containerRef.current._lastTouchDistance - currentDistance;
+        if (Math.abs(delta) > 5) {
+          // Add a small threshold to prevent tiny movements
+          if (delta > 0) {
+            handleZoomOut();
+          } else {
+            handleZoomIn();
+          }
+        }
+      }
+      containerRef.current._lastTouchDistance = currentDistance;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (containerRef.current) {
+      containerRef.current._lastTouchDistance = null;
+    }
+  };
+
   useEffect(() => {
     const container = containerRef.current;
     if (container) {
       container.addEventListener("wheel", handleWheel, { passive: false });
+      container.addEventListener("touchmove", handleTouchMove, {
+        passive: false,
+      });
+      container.addEventListener("touchend", handleTouchEnd);
+      container.addEventListener("touchcancel", handleTouchEnd);
     }
 
     return () => {
       if (container) {
         container.removeEventListener("wheel", handleWheel);
+        container.removeEventListener("touchmove", handleTouchMove);
+        container.removeEventListener("touchend", handleTouchEnd);
+        container.removeEventListener("touchcancel", handleTouchEnd);
       }
     };
   }, []);
@@ -260,7 +345,7 @@ const VideoViewer = ({ Player, streamName }) => {
             position="0 0 -1"
           ></a-entity>
         </a-entity>
-        <a-videosphere rotation="0 180 0" />
+        <a-videosphere rotation={`0 ${rotateAngle} 0`} />
       </a-scene>
       {/* Zoom Controls */}
       <div
@@ -269,49 +354,75 @@ const VideoViewer = ({ Player, streamName }) => {
           position: "absolute",
           bottom: "100px",
           right: "20px",
-          zIndex: 1000,
+          zIndex: "1000",
           display: "flex",
           gap: "10px",
+          justifyContent: "space-between",
+          width: "95%",
         }}
       >
-        <button
-          onClick={handleZoomOut}
-          style={{
-            width: "40px",
-            height: "40px",
-            background: "rgba(0, 0, 0, 0.6)",
-            border: "1px solid rgba(255, 255, 255, 0.3)",
-            borderRadius: "8px",
-            color: "white",
-            fontSize: "20px",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "0",
-          }}
-        >
-          -
-        </button>
-        <button
-          onClick={handleZoomIn}
-          style={{
-            width: "40px",
-            height: "40px",
-            background: "rgba(0, 0, 0, 0.6)",
-            border: "1px solid rgba(255, 255, 255, 0.3)",
-            borderRadius: "8px",
-            color: "white",
-            fontSize: "20px",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "0",
-          }}
-        >
-          +
-        </button>
+        <div></div>
+        {!isRotating ? (
+          <button
+            onClick={toggleRotation}
+            style={{
+              width: "50px",
+              height: "50px",
+              background: "rgba(0, 0, 0, 0.6)",
+              border: "1px solid rgba(255, 255, 255, 0.3)",
+              borderRadius: "50%",
+              color: "white",
+              fontSize: "20px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "0",
+            }}
+          >
+            {isRotating ? "⏸" : "▶️"}
+          </button>
+        ) : null}
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button
+            onClick={handleZoomOut}
+            style={{
+              width: "40px",
+              height: "40px",
+              background: "rgba(0, 0, 0, 0.6)",
+              border: "1px solid rgba(255, 255, 255, 0.3)",
+              borderRadius: "8px",
+              color: "white",
+              fontSize: "20px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "0",
+            }}
+          >
+            -
+          </button>
+          <button
+            onClick={handleZoomIn}
+            style={{
+              width: "40px",
+              height: "40px",
+              background: "rgba(0, 0, 0, 0.6)",
+              border: "1px solid rgba(255, 255, 255, 0.3)",
+              borderRadius: "8px",
+              color: "white",
+              fontSize: "20px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "0",
+            }}
+          >
+            +
+          </button>
+        </div>
       </div>
     </div>
   );
